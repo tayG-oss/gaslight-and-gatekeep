@@ -8,17 +8,19 @@ class Gate {
 	public:
 		//pair<int, bool> in1 = {0, 0};
 		//pair<int, bool> in2 = {0, 0};
-		int in1, in2 = -1;
+		int in1, in2, o = -1;
 		string type = "";
 		Gate();
-		Gate(string c, int a, int b) {
+		Gate(string c, int a, int b, int d) {
 			in1 = a;
 			in2 = b;
 			type = c;
+			o = d;
 		}
-		Gate(string c, int a) {
+		Gate(string c, int a, int d) {
 			in1 = a;
 			type = c;
+			o = d;
 		}
 
 		//Use recursive functions!!!
@@ -41,5 +43,5 @@ class Gate {
 		int get_in1() { return in1; }
 		int get_in2() { return in2; }
 		string get_type() { return type; }
-
+		int get_out() { return o; }
 };
