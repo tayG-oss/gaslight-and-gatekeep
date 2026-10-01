@@ -27,7 +27,7 @@ int main() {
 		cout << "What sort of gate do you want to add?" << endl;
 		int gate = read("0 - NOT, 1 - AND, 2 - OR, 3 - NAND, 4 - NOR, 5 - XOR, 6 - DONE\n");
 		if (gate == 0) { //NOT
-			a = read("Give the index for the first input:\n");
+			a = read("Give the index for the input:\n");   // FIX: README says "the input" for NOT
 			
 			circuit.addGate(Gate("NOT", a));
 		} else if (gate == 1) { //AND
@@ -57,41 +57,22 @@ int main() {
 			circuit.addGate(Gate("XOR", a, b));
 
 		} else if (gate == 6) { //DONE
+			if (!circuit.isComplete()) die();   // NEW: every pin/gate (except the last gate) must feed exactly one gate
 			cout << endl;
 			break;
 		} else die();
-		circuit.gateMark(x);
+		// FIX: removed `circuit.gateMark(x);` - it indexed gates.at(x) and crashed on the first gate.
+		// (Used-ness of each input is now tracked inside Circuit::addGate.)
 	
 	} //End of first loop
 
 	while (true) {
 		int y = read("1) Print Circuit Block or 2) Print Truth Table\n");
 		if (y == 1) {
-			for (int i = 0; i < x; i++) {
-				cout << "Gate Type: INPUT\n";
-				cout << "\tInput Connected to Index: N.C. and N.C.\n";
-				cout << "\tOutput Connected to Index: " << x + 1 << endl; // NOTE TO SELF: fix this pls :D
-				cout << "\tValue: X\n";
-				cout << endl;
-			}
-
-			for (unsigned int j = 0; j < circuit.gates.size(); j++) {
-				cout << "Gate Type: " << circuit.gates.at(j).get_type() << endl;
-				cout << "\tInput Connected to Index: " <<  circuit.gates.at(j).get_in1();
-				if (circuit.gates.at(j).get_type() != "NOT")
-					cout << " and " << circuit.gates.at(j).get_in2() << endl;
-
-				if (j == circuit.gates.size() - 1)
-					cout << "\tOutput Connected to Index: OUTPUT PIN\n";
-				else
-					cout << "\tOutput Connected to Index: " << x + j + 1 << endl;
-				cout << "\tValue: X\n";
-				cout << endl;
-			}
-
+			circuit.printCircuit();   // FIX: now uses the real connections (inputs used to print x + 1, NOT lost its newline)
 			break;
 		} else if (y == 2) {
-			cout << "Input Pins (Numbers), Output Pin (O);\n";
+			circuit.printTruthTable();   // NEW: the truth table was never implemented
 			break;
 		} else die();
 	}
