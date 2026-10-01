@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gates of Babylon</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1d1d1f;--mute:#6b6b70;--line:#d9d7d0;--accent:#7a4dd8;--onaccent:#fff;--on:#1f9d55;--off:#8a8a92;--err:#c62828;--errbg:#fdecea;--okbg:#e8f5ee;--grid:#e6e4dc}
+@media (prefers-color-scheme:dark){:root{--bg:#141416;--card:#1e1e22;--ink:#ececf0;--mute:#9a9aa3;--line:#38383f;--accent:#a98bff;--onaccent:#141416;--on:#3ddc84;--off:#6d6d76;--err:#ff8a80;--errbg:#3a1e1e;--okbg:#17301f;--grid:#2a2a30}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+h1{margin:0;font-size:1.8rem}
+h3{margin:0 0 .3rem;font-size:1rem}
+.sub,.hint{color:var(--mute);margin:.25rem 0 .75rem;font-size:.95rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:16px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:.25rem 0}
+button{font:inherit;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary,.seg button[aria-pressed=true],.tabs button[aria-selected=true]{background:var(--accent);border-color:var(--accent);color:var(--onaccent)}
+button.danger{color:var(--err);border-color:var(--err)}
+.seg,.tabs{display:flex;flex-wrap:wrap;gap:8px;margin:.4rem 0}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper output{min-width:2ch;text-align:center;font-weight:700;font-size:1.1rem}
+.stepper button{width:34px;padding:5px 0}
+.msg{margin:.5rem 0;padding:10px 12px;border-radius:8px;white-space:pre-line}
+.msg.err{background:var(--errbg);color:var(--err)}
+.msg.ok{background:var(--okbg);color:var(--on)}
+.msg.info{background:var(--bg);color:var(--mute)}
+pre,.tbl{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.tbl{border-collapse:collapse;width:100%;font-size:.92rem}
+.tbl th,.tbl td{padding:4px 12px;text-align:center;border-bottom:1px solid var(--line)}
+.tbl thead th{position:sticky;top:0;background:var(--card)}
+.tbl td.one{color:var(--on);font-weight:600}
+.tbl td.zero{color:var(--mute)}
+.tbl th.out,.tbl td.out{border-left:2px solid var(--line)}
+.tbl tr.cur td{background:var(--okbg)}
+.scroll{overflow:auto;max-height:65vh;border:1px solid var(--line);border-radius:8px}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;max-height:60vh;margin:.5rem 0;tab-size:8}
+.outline{display:inline-block;font-weight:700;padding:1px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line)}
+.editor{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-top:12px;background:var(--bg)}
+.editor .hint{margin:.2rem 0 .4rem}
+/* toolbar palette */
+.palette{display:flex;flex-wrap:wrap;gap:10px;margin:.4rem 0 .6rem}
+.pal{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 10px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;min-width:76px}
+.pal span{font-size:.75rem;color:var(--mute)}
+.pal svg,.ghost svg{display:block;overflow:visible}
+.pal path,.pal circle,.ghost path,.ghost circle{fill:var(--card);stroke:var(--ink);stroke-width:2.5;stroke-linejoin:round}
+.pal path.extra,.ghost path.extra{fill:none}
+.ghost{position:fixed;pointer-events:none;z-index:50;opacity:.85}
+/* canvas */
+#canvasWrap{background-color:var(--bg);background-image:radial-gradient(var(--grid) 1px,transparent 1px);background-size:20px 20px}
+#canvas{display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+.wire{fill:none;stroke-width:2.5;pointer-events:none}
+.wire.on{stroke:var(--on)}
+.wire.off{stroke:var(--off)}
+.wire.unk{stroke:var(--off);stroke-dasharray:5 4}
+.wire.ghostw{stroke:var(--accent);stroke-dasharray:6 4}
+.node{cursor:grab}
+.node rect{fill:var(--card);stroke-width:2.5}
+.node path,.node circle{fill:var(--card);stroke-width:2.5;stroke-linejoin:round}
+.node path.extra{fill:none}
+.node.on rect,.node.on path,.node.on circle{stroke:var(--on)}
+.node.off rect,.node.off path,.node.off circle{stroke:var(--off)}
+.node.gate.on path.body,.node.gate.on circle,.node.input.on rect,.node.out.on rect{fill:var(--okbg)}
+.node.sel path.body,.node.sel circle{stroke:var(--accent)}
+.node.input{cursor:pointer}
+.node:focus{outline:none}
+.node:focus rect,.node:focus path.body{stroke:var(--accent);stroke-dasharray:4 3}
+.node text{fill:var(--ink);font:600 13px ui-monospace,Menlo,Consolas,monospace;text-anchor:middle;pointer-events:none}
+.node text.val{font-size:12px;fill:var(--mute);font-weight:400}
+.node text.bit{font-size:14px}
+.node text.lab{font-size:11px;fill:var(--mute);font-weight:400}
+.port{cursor:crosshair}
+.port circle.hit{fill:transparent;stroke:none;pointer-events:all}
+.port.empty circle.vis{fill:var(--card);stroke:var(--err);stroke-width:2;stroke-dasharray:3 2}
+.port.full circle.vis{fill:var(--ink);stroke:none}
+.port.hot circle.vis{fill:var(--accent);stroke:var(--accent);stroke-width:3;stroke-dasharray:none}
+.port.src circle.vis{fill:var(--accent);stroke:none}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Gates of Babylon</h1>
+    <p class="sub">Drag gates onto the canvas, wire them together by dragging between dots, and flip the inputs to watch the output.</p>
+  </header>
+
+  <section class="card">
+    <div class="row">
+      <div class="stepper" role="group" aria-label="Number of inputs">
+        <span>Inputs</span>
+        <button id="pinMinus" type="button" aria-label="Remove an input">&minus;</button>
+        <output id="pinCount">3</output>
+        <button id="pinPlus" type="button" aria-label="Add an input">+</button>
+      </div>
+      <button id="undoBtn" type="button">Undo</button>
+      <button id="arrangeBtn" type="button">Auto-arrange</button>
+      <button id="clearBtn" type="button" class="danger">Clear everything</button>
+      <span class="hint" style="margin:0">Load:</span>
+      <button id="ex1" type="button">Example 1</button>
+      <button id="ex2" type="button">Example 2</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <p id="status" class="msg info" aria-live="polite"></p>
+    <div class="tabs" role="tablist" id="tabBar"></div>
+
+    <div id="panel-diagram" role="tabpanel">
+      <p class="hint" style="margin-bottom:.2rem"><b>Drag a gate</b> from here onto the canvas (or click it to drop it automatically):</p>
+      <div id="palette" class="palette"></div>
+      <p class="hint">
+        <b>Wire:</b> drag from one dot to another (output dot &rarr; input dot, or the other way round).
+        <b>Unplug:</b> drag a wire's end off its dot.
+        <b>Move:</b> drag a box.
+        <b>Flip:</b> click an input box.
+        <b>Delete:</b> select a gate, then press Delete.
+        Output: <span id="liveOut" class="outline"></span>
+      </p>
+      <div id="canvasWrap" class="scroll"><svg id="canvas" role="group" aria-label="Circuit canvas" width="900" height="460" viewBox="0 0 900 460"></svg></div>
+      <p id="editMsg" class="msg err" role="alert" hidden></p>
+      <div id="editor" class="editor"></div>
+    </div>
+    <div id="panel-text" role="tabpanel" hidden>
+      <div class="row"><button id="copyCircuit" type="button">Copy as text</button></div>
+      <p id="cppNoteText" class="msg info" hidden></p>
+      <pre id="circuitText"></pre>
+    </div>
+    <div id="panel-table" role="tabpanel" hidden>
+      <div class="row"><button id="copyTable" type="button">Copy as text</button></div>
+      <p id="cppNoteTable" class="msg info" hidden></p>
+      <div id="tableHost" class="scroll"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+'use strict';
+
+/* ======================= CORE (no DOM access) =======================
+   Model: { n, nextId, gates:[{id,type,ins:[ref|null,...]}], out: ref|null, pos:{key:{x,y}} }
+   A ref is 'p<i>' (input pin i) or 'g<id>' (output of gate id).
+   pos is keyed 'p<i>', 'g<id>' and 'out' (top-left corner of each box on the canvas).
+   Invariants kept by every operation below:
+     - every ref stored in a slot exists
+     - each pin / gate output is stored in AT MOST ONE slot (a gate input or OUT)
+     - the graph has no loops
+     - every node has a position */
+var MAX_INPUTS = 10, MAX_GATES = 100;
+var ROW = 64, GW = 80, GH = 44, CURVE = 16, PAD = 24, COLW = 140, MAXX = 2400, MAXY = 1600;
+var TYPES = {
+  NOT:  { arity: 1, fn: function (a)    { return a ^ 1; } },
+  AND:  { arity: 2, fn: function (a, b) { return a & b; } },
+  OR:   { arity: 2, fn: function (a, b) { return a | b; } },
+  NAND: { arity: 2, fn: function (a, b) { return (a & b) ^ 1; } },
+  NOR:  { arity: 2, fn: function (a, b) { return (a | b) ^ 1; } },
+  XOR:  { arity: 2, fn: function (a, b) { return a ^ b; } }
+};
+var TYPE_ORDER = ['NOT', 'AND', 'OR', 'NAND', 'NOR', 'XOR'];
+function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+function fail(msg) { return { ok: false, error: msg }; }
+function validType(t) { return typeof t === 'string' && has(TYPES, t); }
+function clampN(v, max) { v = Number(v); return Number.isFinite(v) ? Math.min(max, Math.max(0, Math.round(v))) : 0; }
+function isNum(v) { return typeof v === 'number' && Number.isFinite(v); }
+
+function resetPositions(m) {
+  var i;
+  m.pos = {};
+  for (i = 0; i < m.n; i++) m.pos['p' + i] = { x: PAD, y: PAD + i * ROW };
+  m.pos.out = { x: 720, y: PAD + ((m.n - 1) * ROW) / 2 };
+}
+function newModel(n) {
+  if (!Number.isInteger(n) || n < 1 || n > MAX_INPUTS) throw new Error('BAD INPUT!');
+  var m = { n: n, nextId: 1, gates: [], out: null, pos: {} };
+  resetPositions(m);
+  return m;
+}
+function gateById(m, id) {
+  for (var i = 0; i < m.gates.length; i++) if (m.gates[i].id === id) return m.gates[i];
+  return null;
+}
+function parseRef(m, ref) {
+  if (typeof ref !== 'string') return null;
+  var mm = /^([pg])(0|[1-9]\d*)$/.exec(ref);
+  if (!mm) return null;
+  var num = Number(mm[2]);
+  if (mm[1] === 'p') return num < m.n ? { kind: 'pin', num: num } : null;
+  return gateById(m, num) ? { kind: 'gate', num: num } : null;
+}
+/* a slot target is {gate:id, slot:j} or {out:true} */
+function slotOf(m, t) {
+  if (!t || typeof t !== 'object') return null;
+  if (t.out === true) return { get: function () { return m.out; }, set: function (v) { m.out = v; } };
+  var g = gateById(m, t.gate);
+  if (!g || !Number.isInteger(t.slot) || t.slot < 0 || t.slot >= g.ins.length) return null;
+  return { get: function () { return g.ins[t.slot]; }, set: function (v) { g.ins[t.slot] = v; } };
+}
+function sameT(a, b) { return a.out === b.out && a.gate === b.gate && a.slot === b.slot; }
+function consumerOf(m, ref) {
+  if (m.out === ref) return { out: true };
+  for (var i = 0; i < m.gates.length; i++)
+    for (var j = 0; j < m.gates[i].ins.length; j++)
+      if (m.gates[i].ins[j] === ref) return { gate: m.gates[i].id, slot: j };
+  return null;
+}
+/* does ref equal gate gid, or (transitively) take input from it? */
+function dependsOn(m, ref, gid) {
+  var stack = [ref], seen = {}, target = 'g' + gid, r, g;
+  while (stack.length) {
+    r = stack.pop();
+    if (r === null || seen[r]) continue;
+    seen[r] = 1;
+    if (r === target) return true;
+    if (r.charAt(0) === 'g') { g = gateById(m, Number(r.slice(1))); if (g) g.ins.forEach(function (x) { stack.push(x); }); }
+  }
+  return false;
+}
+/* Gates in a valid evaluation order (inputs before consumers); ties go to the oldest gate. */
+function order(m) {
+  var placed = {}, out = [], left = m.gates.slice().sort(function (a, b) { return a.id - b.id; }), progress = true, k, g;
+  function ready(r) { return r === null || r.charAt(0) === 'p' || placed[r] === 1; }
+  while (left.length && progress) {
+    progress = false;
+    for (k = 0; k < left.length; k++) {
+      g = left[k];
+      if (g.ins.every(ready)) { placed['g' + g.id] = 1; out.push(g); left.splice(k, 1); progress = true; break; }
+    }
+  }
+  return out.concat(left); /* "left" is only non-empty if the model were corrupt (a loop) */
+}
+function labeler(m) {
+  var idx = {};
+  order(m).forEach(function (g, k) { idx['g' + g.id] = m.n + k; });
+  return function (ref) {
+    if (ref === null) return '(empty)';
+    if (ref === 'OUT') return 'OUT';
+    if (ref.charAt(0) === 'p') return 'Input ' + ref.slice(1);
+    var g = gateById(m, Number(ref.slice(1)));
+    return g ? g.type + ' #' + idx[ref] : '?';
+  };
+}
+/* a free spot on the canvas for an automatically placed gate */
+function freeSpot(m) {
+  var boxes = Object.keys(m.pos).map(function (k) { return m.pos[k]; }), c, r, x, y;
+  var clash = function (x, y) { return boxes.some(function (b) { return Math.abs(b.x - x) < GW + 12 && Math.abs(b.y - y) < GH + 22; }); };
+  for (c = 0; c < 6; c++) for (r = 0; r < 10; r++) { x = 200 + c * COLW; y = PAD + r * ROW; if (!clash(x, y)) return { x: x, y: y }; }
+  var k = m.gates.length;
+  return { x: 200 + (k * 37) % 500, y: PAD + (k * 53) % 400 };
+}
+function canConnect(m, src, t) {
+  if (!parseRef(m, src) || !slotOf(m, t)) return false;
+  return t.out === true || !dependsOn(m, src, t.gate);
+}
+/* Plug src into slot t. If src was plugged somewhere else it MOVES here; whatever was in t is unplugged. */
+function connect(m, src, t) {
+  if (!parseRef(m, src)) return fail('BAD INPUT! That source does not exist.');
+  var slot = slotOf(m, t);
+  if (!slot) return fail('BAD INPUT! That input slot does not exist.');
+  if (t.out !== true && dependsOn(m, src, t.gate)) return fail('That would make a loop, so it was not connected.');
+  var old = consumerOf(m, src);
+  if (old) {
+    if (sameT(old, t)) return { ok: true };
+    slotOf(m, old).set(null);
+  }
+  slot.set(src);
+  return { ok: true };
+}
+function disconnect(m, t) {
+  var slot = slotOf(m, t);
+  if (!slot) return fail('BAD INPUT! That input slot does not exist.');
+  slot.set(null);
+  return { ok: true };
+}
+function newGate(m, type, x, y) {
+  var id = m.nextId++, ins = [], k;
+  for (k = 0; k < TYPES[type].arity; k++) ins.push(null);
+  m.gates.push({ id: id, type: type, ins: ins });
+  m.pos['g' + id] = (isNum(x) && isNum(y)) ? { x: clampN(x, MAXX), y: clampN(y, MAXY) } : freeSpot(m);
+  return id;
+}
+function addFloatingGate(m, type, x, y) {
+  if (!validType(type)) return fail('BAD INPUT! Unknown gate type.');
+  if (m.gates.length >= MAX_GATES) return fail('Gate limit reached (' + MAX_GATES + ').');
+  return { ok: true, id: newGate(m, type, x, y) };
+}
+function addGateTo(m, type, t) {
+  if (!validType(type)) return fail('BAD INPUT! Unknown gate type.');
+  if (m.gates.length >= MAX_GATES) return fail('Gate limit reached (' + MAX_GATES + ').');
+  var slot = slotOf(m, t);
+  if (!slot) return fail('BAD INPUT! That input slot does not exist.');
+  var id = newGate(m, type);
+  slot.set('g' + id);
+  return { ok: true, id: id };
+}
+function setType(m, id, type) {
+  if (!validType(type)) return fail('BAD INPUT! Unknown gate type.');
+  var g = gateById(m, id);
+  if (!g) return fail('BAD INPUT! That gate does not exist.');
+  var a = TYPES[type].arity;
+  while (g.ins.length < a) g.ins.push(null);
+  if (g.ins.length > a) g.ins.length = a;
+  g.type = type;
+  return { ok: true };
+}
+function removeGate(m, id) {
+  var g = gateById(m, id);
+  if (!g) return fail('BAD INPUT! That gate does not exist.');
+  var c = consumerOf(m, 'g' + id);
+  if (c) slotOf(m, c).set(null);
+  m.gates.splice(m.gates.indexOf(g), 1);
+  delete m.pos['g' + id];
+  return { ok: true };
+}
+function setPos(m, key, x, y) {
+  var ok = key === 'out' || (typeof key === 'string' && !!parseRef(m, key));
+  if (!ok || !isNum(x) || !isNum(y)) return fail('BAD INPUT! Cannot move that.');
+  m.pos[key] = { x: clampN(x, MAXX), y: clampN(y, MAXY) };
+  return { ok: true };
+}
+function setPins(m, n) {
+  if (!Number.isInteger(n) || n < 1 || n > MAX_INPUTS) return fail('Inputs must be between 1 and ' + MAX_INPUTS + '.');
+  var oldN = m.n, i, c;
+  for (i = n; i < oldN; i++) { c = consumerOf(m, 'p' + i); if (c) slotOf(m, c).set(null); delete m.pos['p' + i]; }
+  for (i = oldN; i < n; i++) m.pos['p' + i] = { x: PAD, y: PAD + i * ROW };
+  m.n = n;
+  return { ok: true };
+}
+function clearAll(m) { m.gates = []; m.out = null; resetPositions(m); return { ok: true }; }
+
+/* list of reasons the circuit is not finished (empty list = complete & valid) */
+function problems(m) {
+  var p = [], L = labeler(m), i, ord = order(m);
+  if (!m.gates.length) p.push('Drag at least one gate onto the canvas.');
+  ord.forEach(function (g) {
+    g.ins.forEach(function (r, j) { if (r === null) p.push(L('g' + g.id) + ': input ' + (j + 1) + ' is empty.'); });
+  });
+  for (i = 0; i < m.n; i++) if (!consumerOf(m, 'p' + i)) p.push('Input ' + i + ' is not connected to anything.');
+  ord.forEach(function (g) { if (!consumerOf(m, 'g' + g.id)) p.push(L('g' + g.id) + ' is not connected to anything.'); });
+  if (m.out === null) p.push('The OUT box is not connected.');
+  return p;
+}
+/* value of every node for the given input bits; null = unknown (an empty slot upstream) */
+function evalModel(m, bits) {
+  var memo = {}, busy = {};
+  function val(ref) {
+    if (ref === null) return null;
+    if (ref.charAt(0) === 'p') return bits[Number(ref.slice(1))] ? 1 : 0;
+    if (has(memo, ref)) return memo[ref];
+    if (busy[ref]) return null;
+    busy[ref] = 1;
+    var g = gateById(m, Number(ref.slice(1))), r = null, a, b;
+    if (g) {
+      a = val(g.ins[0]); b = g.ins.length > 1 ? val(g.ins[1]) : 0;
+      r = (a === null || b === null) ? null : TYPES[g.type].fn(a, b);
+    }
+    busy[ref] = 0; memo[ref] = r;
+    return r;
+  }
+  return { val: val, out: val(m.out) };
+}
+
+/* ---- indexed form, exactly the numbering used by the README / C++ program ----
+   indexes 0..n-1 are the pins, gate k has index n+k, last gate = output */
+function toIndexed(m) {
+  var p = problems(m);
+  if (p.length) return { ok: false, problems: p };
+  var ord = order(m), idx = {};
+  ord.forEach(function (g, k) { idx['g' + g.id] = m.n + k; });
+  var map = function (r) { return r.charAt(0) === 'p' ? Number(r.slice(1)) : idx[r]; };
+  var c = { n: m.n, gates: ord.map(function (g) { return { type: g.type, ins: g.ins.map(map) }; }) };
+  var chk = checkIndexed(c);
+  if (chk.length) return { ok: false, problems: chk };
+  return { ok: true, circuit: c };
+}
+function checkIndexed(c) {
+  var cnt = {}, p = [], N = c.n + c.gates.length, i;
+  c.gates.forEach(function (g, k) {
+    g.ins.forEach(function (x) {
+      if (!Number.isInteger(x) || x < 0 || x >= c.n + k) p.push('Gate ' + (c.n + k) + ' has a bad input index.');
+      cnt[x] = (cnt[x] || 0) + 1;
+    });
+  });
+  for (i = 0; i < N - 1; i++) if (cnt[i] !== 1) p.push('Index ' + i + ' must feed exactly one gate.');
+  if (cnt[N - 1]) p.push('The last gate must be the output.');
+  if (!c.gates.length) p.push('No gates.');
+  return p;
+}
+function evaluate(c, bits) {
+  var v = new Array(c.n + c.gates.length), i;
+  for (i = 0; i < c.n; i++) v[i] = bits[i] ? 1 : 0;
+  c.gates.forEach(function (g, k) {
+    var a = v[g.ins[0]], b = g.ins.length > 1 ? v[g.ins[1]] : 0;
+    if (a === undefined || b === undefined) throw new Error('Internal error: gate references a later node');
+    v[c.n + k] = TYPES[g.type].fn(a, b);
+  });
+  return v;
+}
+/* rows run from all-ones down to all-zeros; input 0 is the most significant bit
+   (same as gatekeep.h: (input >> (numIn - 1 - idx)) & 1) */
+function truthTable(c) {
+  var rows = [], total = Math.pow(2, c.n), r, i, bits, v;
+  for (r = total - 1; r >= 0; r--) {
+    bits = [];
+    for (i = 0; i < c.n; i++) bits.push((r >> (c.n - 1 - i)) & 1);
+    v = evaluate(c, bits);
+    rows.push({ bits: bits, out: v[v.length - 1] });
+  }
+  return rows;
+}
+function rowsText(n, rows) {
+  var h = [], i;
+  for (i = 0; i < n; i++) h.push(String(i));
+  h.push('O');
+  var lines = ['Input Pins (Numbers), Output Pin (O):', h.join('|')];
+  rows.forEach(function (r) { lines.push(r.bits.concat([r.out]).join('|')); });
+  return lines.join('\n') + '\n';
+}
+function truthText(c) { return rowsText(c.n, truthTable(c)); }
+function circuitText(c) {
+  var cnt = {}, N = c.n + c.gates.length, lines = [], i, g;
+  c.gates.forEach(function (gg, k) { gg.ins.forEach(function (x) { (cnt[x] = cnt[x] || []).push(c.n + k); }); });
+  for (i = 0; i < N; i++) {
+    g = i < c.n ? null : c.gates[i - c.n];
+    lines.push('Gate Type: ' + (g ? g.type : 'INPUT'));
+    lines.push('\tInput Connected to Index: ' + (g ? g.ins.join(' and ') : 'N.C. and N.C.'));
+    lines.push('\tOutput Connected to Index: ' + (i === N - 1 ? 'OUTPUT PIN' : (cnt[i] || []).join(', ')));
+    lines.push('\tValue: X');
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+/* ---- automatic layout: columns by depth, rows ordered to keep wires short ---- */
+function layoutModel(m, ord) {
+  var lev = {}, y = {}, i, l, maxLevel = 0;
+  for (i = 0; i < m.n; i++) { lev['p' + i] = 0; y['p' + i] = i * ROW; }
+  ord.forEach(function (g) {
+    var lv = 0;
+    g.ins.forEach(function (r) { if (r !== null) lv = Math.max(lv, lev[r] || 0); });
+    lev['g' + g.id] = lv + 1;
+    maxLevel = Math.max(maxLevel, lv + 1);
+  });
+  function want(g) {
+    var s = 0, c = 0;
+    g.ins.forEach(function (r) { if (r !== null && y[r] !== undefined) { s += y[r]; c++; } });
+    return c ? s / c : null;
+  }
+  for (l = 1; l <= maxLevel; l++) {
+    var layer = ord.filter(function (g) { return lev['g' + g.id] === l; });
+    var w = {};
+    layer.forEach(function (g) { w[g.id] = want(g); });
+    layer.sort(function (a, b) {
+      var wa = w[a.id], wb = w[b.id];
+      if (wa === null && wb === null) return a.id - b.id;
+      if (wa === null) return 1;
+      if (wb === null) return -1;
+      return (wa - wb) || (a.id - b.id);
+    });
+    var prev = -Infinity;
+    layer.forEach(function (g) {
+      var base = w[g.id] === null ? (prev === -Infinity ? 0 : prev + ROW) : w[g.id];
+      y['g' + g.id] = Math.max(base, prev + ROW);
+      prev = y['g' + g.id];
+    });
+  }
+  var outY = (m.out !== null && y[m.out] !== undefined) ? y[m.out] : ((m.n - 1) * ROW) / 2;
+  var maxY = outY;
+  Object.keys(y).forEach(function (k) { maxY = Math.max(maxY, y[k]); });
+  return { lev: lev, y: y, maxLevel: maxLevel, outLevel: maxLevel + 1, outY: outY, height: maxY + GH };
+}
+function autoArrange(m) {
+  var L = layoutModel(m, order(m));
+  Object.keys(L.lev).forEach(function (k) { m.pos[k] = { x: clampN(PAD + L.lev[k] * COLW, MAXX), y: clampN(PAD + L.y[k], MAXY) }; });
+  m.pos.out = { x: clampN(PAD + L.outLevel * COLW, MAXX), y: clampN(PAD + L.outY, MAXY) };
+  return { ok: true };
+}
+
+/* ---- examples = the two sample runs from the README ---- */
+function example1() {
+  var m = newModel(3);
+  addGateTo(m, 'OR', { out: true });                 /* gate id 1 */
+  connect(m, 'p2', { gate: 1, slot: 0 });
+  addGateTo(m, 'AND', { gate: 1, slot: 1 });         /* gate id 2 */
+  connect(m, 'p0', { gate: 2, slot: 0 });
+  connect(m, 'p1', { gate: 2, slot: 1 });
+  autoArrange(m);
+  return m;
+}
+function example2() {
+  var m = newModel(6), nots = [], ands = [], i;
+  for (i = 0; i < 6; i++) nots.push(addFloatingGate(m, 'NOT').id);
+  for (i = 0; i < 5; i++) ands.push(addFloatingGate(m, 'AND').id);
+  for (i = 0; i < 6; i++) connect(m, 'p' + i, { gate: nots[i], slot: 0 });
+  var wires = [[0, 'n0', 'n1'], [1, 'n2', 'n3'], [2, 'n4', 'n5'], [3, 'a0', 'a1'], [4, 'a2', 'a3']];
+  wires.forEach(function (w) {
+    [w[1], w[2]].forEach(function (s, j) {
+      var ref = (s.charAt(0) === 'n' ? 'g' + nots[Number(s.slice(1))] : 'g' + ands[Number(s.slice(1))]);
+      connect(m, ref, { gate: ands[w[0]], slot: j });
+    });
+  });
+  connect(m, 'g' + ands[4], { out: true });
+  autoArrange(m);
+  return m;
+}
+
+/* ---- standard (ANSI) gate symbols, drawn in a GW x GH box; output leaves at x = GW ---- */
+function gateGeometry(type) {
+  var inv = type === 'NOT' || type === 'NAND' || type === 'NOR';
+  var B = inv ? GW - 10 : GW, mid = GH / 2, d, extra = null, textX, x0, fx;
+  if (type === 'AND' || type === 'NAND') {
+    d = 'M0,0 H' + (B - mid) + ' A' + mid + ',' + mid + ' 0 0 1 ' + (B - mid) + ',' + GH + ' H0 Z';
+    textX = B * 0.45;
+  } else if (type === 'NOT') {
+    d = 'M0,2 L' + B + ',' + mid + ' L0,' + (GH - 2) + ' Z';
+    textX = B * 0.3;
+  } else {
+    x0 = type === 'XOR' ? 8 : 0;
+    fx = x0 + (B - x0) * 0.55;
+    d = 'M' + x0 + ',0 Q' + fx + ',0 ' + B + ',' + mid + ' Q' + fx + ',' + GH + ' ' + x0 + ',' + GH +
+        ' Q' + (x0 + CURVE) + ',' + mid + ' ' + x0 + ',0 Z';
+    if (type === 'XOR') extra = 'M0,' + GH + ' Q' + CURVE + ',' + mid + ' 0,0';
+    textX = x0 + (B - x0) * 0.45;
+  }
+  var curved = type === 'OR' || type === 'NOR' || type === 'XOR';
+  return {
+    d: d, extra: extra, inv: inv, B: B, textX: textX,
+    /* x offset where the j-th of mm input wires meets the symbol's back edge */
+    portX: function (j, mm) {
+      if (!curved) return 0;
+      var t = 1 - (j + 1) / (mm + 1);
+      return 2 * CURVE * t * (1 - t);
+    }
+  };
+}
+
+/* ---- ports: the dots you drag between ---- */
+function outPortOf(m, ref) { var p = m.pos[ref]; return { x: p.x + GW, y: p.y + GH / 2 }; }
+function inPortOf(m, t) {
+  var p, g;
+  if (t.out === true) { p = m.pos.out; return { x: p.x, y: p.y + GH / 2 }; }
+  g = gateById(m, t.gate); p = m.pos['g' + g.id];
+  return { x: p.x + gateGeometry(g.type).portX(t.slot, g.ins.length), y: p.y + GH * (t.slot + 1) / (g.ins.length + 1) };
+}
+function allPorts(m) {
+  var list = [], i;
+  for (i = 0; i < m.n; i++) list.push({ kind: 'out', ref: 'p' + i });
+  m.gates.forEach(function (g) {
+    list.push({ kind: 'out', ref: 'g' + g.id });
+    g.ins.forEach(function (_, j) { list.push({ kind: 'in', t: { gate: g.id, slot: j } }); });
+  });
+  list.push({ kind: 'in', t: { out: true } });
+  list.forEach(function (p) { var xy = p.kind === 'out' ? outPortOf(m, p.ref) : inPortOf(m, p.t); p.x = xy.x; p.y = xy.y; });
+  return list;
+}
+function nearestPort(m, pt, kind, radius, accept) {
+  var best = null, bd = radius;
+  allPorts(m).forEach(function (p) {
+    if (kind && p.kind !== kind) return;
+    if (accept && !accept(p)) return;
+    var d = Math.hypot(p.x - pt.x, p.y - pt.y);
+    if (d <= bd) { best = p; bd = d; }
+  });
+  return best;
+}
+/* topmost node box under the point: returns 'out', 'g<id>' or 'p<i>' (or null) */
+function nodeAt(m, pt) {
+  var hit = function (k) { var p = m.pos[k]; return pt.x >= p.x && pt.x <= p.x + GW && pt.y >= p.y && pt.y <= p.y + GH; };
+  var i;
+  if (hit('out')) return 'out';
+  for (i = m.gates.length - 1; i >= 0; i--) if (hit('g' + m.gates[i].id)) return 'g' + m.gates[i].id;
+  for (i = m.n - 1; i >= 0; i--) if (hit('p' + i)) return 'p' + i;
+  return null;
+}
+
+window.GatesOfBabylon = {
+  TYPES: TYPES, newModel: newModel, parseRef: parseRef, connect: connect, canConnect: canConnect, disconnect: disconnect,
+  addGateTo: addGateTo, addFloatingGate: addFloatingGate, setType: setType, removeGate: removeGate, setPos: setPos,
+  setPins: setPins, clearAll: clearAll, problems: problems, evalModel: evalModel, order: order, toIndexed: toIndexed,
+  evaluate: evaluate, truthTable: truthTable, truthText: truthText, circuitText: circuitText, layoutModel: layoutModel,
+  autoArrange: autoArrange, consumerOf: consumerOf, gateById: gateById, example1: example1, example2: example2,
+  allPorts: allPorts, nearestPort: nearestPort, nodeAt: nodeAt, GW: GW, GH: GH
+};
+
+/* ============================ UI ============================ */
+var NS = 'http://www.w3.org/2000/svg';
+var app = { m: null, bits: [], tab: 'diagram', sel: null, hist: [], rowEls: [], curRow: -1, focusRef: null, drag: null, hover: null, textToken: 0, tableToken: 0, tableRows: null };
+window.GatesOfBabylon._app = app; /* exposed for automated tests */
+function $(id) { return document.getElementById(id); }
+function el(tag, props) {
+  var e = document.createElement(tag), k, kids = Array.prototype.slice.call(arguments, 2);
+  if (props) for (k in props) if (has(props, k)) e.setAttribute(k, props[k]);
+  kids.forEach(function (x) { if (x != null) e.append(typeof x === 'object' ? x : String(x)); });
+  return e;
+}
+function elk(tag, props, kids) { return el.apply(null, [tag, props].concat(kids)); }
+function svgEl(tag, attrs) {
+  var e = document.createElementNS(NS, tag), k, kids = Array.prototype.slice.call(arguments, 2);
+  for (k in attrs) if (has(attrs, k)) e.setAttribute(k, attrs[k]);
+  kids.forEach(function (x) { if (x != null) e.append(typeof x === 'object' ? x : String(x)); });
+  return e;
+}
+function showMsg(id, text, kind) { var m = $(id); m.textContent = text; m.hidden = false; m.className = 'msg ' + (kind || 'err'); }
+function hideMsg(id) { var m = $(id); m.hidden = true; m.textContent = ''; }
+function vs(v) { return v === null ? '?' : String(v); }
+
+/* ---------- state changes ---------- */
+function snapshot() { return JSON.stringify(app.m); }
+function pushHist(snap) { app.hist.push(snap); if (app.hist.length > 50) app.hist.shift(); }
+function resizeBits() {
+  while (app.bits.length < app.m.n) app.bits.push(0);
+  app.bits.length = app.m.n;
+}
+function loadModel(m) {
+  if (app.m) pushHist(snapshot());
+  app.m = m; app.bits = new Array(m.n).fill(0); app.sel = null; app.focusRef = null;
+  hideMsg('editMsg'); renderAll();
+}
+function edit(fn, after) {
+  var snap = snapshot(), r = fn();
+  if (!r.ok) { showMsg('editMsg', r.error); renderAll(); return r; }
+  hideMsg('editMsg'); pushHist(snap); app.focusRef = null;
+  resizeBits();
+  if (after) after(r);
+  renderAll();
+  return r;
+}
+function undo() {
+  if (!app.hist.length) return;
+  app.m = JSON.parse(app.hist.pop());
+  resizeBits(); app.sel = null; app.focusRef = null; hideMsg('editMsg'); renderAll();
+}
+function selValid() { return app.sel === null || !!gateById(app.m, app.sel); }
+
+/* ---------- rendering ---------- */
+function renderAll() {
+  var m = app.m;
+  if (!selValid()) app.sel = null;
+  $('pinCount').textContent = String(m.n);
+  $('pinMinus').disabled = m.n <= 1;
+  $('pinPlus').disabled = m.n >= MAX_INPUTS;
+  $('undoBtn').disabled = app.hist.length === 0;
+  renderStatus(); renderCanvas(); renderEditor();
+  if (app.tab === 'text') renderText();
+  if (app.tab === 'table') renderTable();
+}
+function renderStatus() {
+  var m = app.m, p = problems(m);
+  if (!p.length) {
+    showMsg('status', 'Circuit complete: ' + m.n + ' input' + (m.n === 1 ? '' : 's') + ', ' + m.gates.length +
+      ' gate' + (m.gates.length === 1 ? '' : 's') + '. The last gate drives the output.', 'ok');
+  } else {
+    showMsg('status', 'Not finished yet:\n' + p.slice(0, 6).join('\n') + (p.length > 6 ? '\n...and ' + (p.length - 6) + ' more' : ''), 'info');
+  }
+}
+function renderCanvas() {
+  var m = app.m, svg = $('canvas'), lab = labeler(m), ev = evalModel(m, app.bits), d = app.drag, W = GW, H = GH, kids = [];
+  var maxR = 0, maxB = 0;
+  Object.keys(m.pos).forEach(function (k) { maxR = Math.max(maxR, m.pos[k].x + W); maxB = Math.max(maxB, m.pos[k].y + H + 20); });
+  var width = Math.max(900, maxR + 100), height = Math.max(460, maxB + 80);
+  svg.setAttribute('width', String(width)); svg.setAttribute('height', String(height));
+  svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+
+  function wire(a, b, v, cls) {
+    var dx = Math.max(40, Math.abs(b.x - a.x) / 2);
+    return svgEl('path', { class: 'wire ' + (cls || (v === 1 ? 'on' : v === 0 ? 'off' : 'unk')),
+      d: 'M' + a.x + ' ' + a.y + ' C' + (a.x + dx) + ' ' + a.y + ',' + (b.x - dx) + ' ' + b.y + ',' + b.x + ' ' + b.y });
+  }
+  var carrying = d && d.kind === 'wire' && d.mode === 'pickup';
+  /* wires */
+  m.gates.forEach(function (g) {
+    g.ins.forEach(function (r, j) {
+      if (r === null) return;
+      var t = { gate: g.id, slot: j };
+      if (carrying && sameT(d.origin, t)) return;       /* wire being carried is drawn as the ghost wire */
+      kids.push(wire(outPortOf(m, r), inPortOf(m, t), ev.val(r)));
+    });
+  });
+  if (m.out !== null && !(carrying && sameT(d.origin, { out: true }))) kids.push(wire(outPortOf(m, m.out), inPortOf(m, { out: true }), ev.val(m.out)));
+
+  function box(key, top, bottom, v, cls) {
+    var p = m.pos[key];
+    return svgEl('g', { class: 'node ' + cls + ' ' + (v === 1 ? 'on' : 'off'), transform: 'translate(' + p.x + ',' + p.y + ')',
+      tabindex: '0', role: 'button', 'data-ref': key },
+      svgEl('rect', { width: W, height: H, rx: 8 }),
+      svgEl('text', { x: W / 2, y: 19 }, top),
+      svgEl('text', { x: W / 2, y: 35, class: 'val' }, bottom));
+  }
+  var i, node;
+  for (i = 0; i < m.n; i++) {
+    node = box('p' + i, 'IN ' + i, String(ev.val('p' + i)), ev.val('p' + i), 'input');
+    node.setAttribute('aria-label', 'Input ' + i + ' is ' + ev.val('p' + i) + '. Activate to flip.');
+    kids.push(node);
+  }
+  m.gates.forEach(function (g) {
+    var r = 'g' + g.id, v = ev.val(r), geo = gateGeometry(g.type), p = m.pos[r];
+    var n = svgEl('g', { class: 'node gate ' + (v === 1 ? 'on' : 'off') + (app.sel === g.id ? ' sel' : ''),
+      transform: 'translate(' + p.x + ',' + p.y + ')', tabindex: '0', role: 'button', 'data-ref': r,
+      'aria-label': lab(r) + ', output ' + vs(v) + '. Activate to select.' },
+      svgEl('path', { class: 'body', d: geo.d }));
+    if (geo.extra) n.append(svgEl('path', { class: 'extra', d: geo.extra }));
+    if (geo.inv) n.append(svgEl('circle', { cx: geo.B + 5, cy: H / 2, r: 5 }));
+    n.append(svgEl('text', { x: geo.textX, y: H / 2 + 5, class: 'bit' }, vs(v)));
+    n.append(svgEl('text', { x: W / 2, y: H + 13, class: 'lab' }, lab(r)));
+    kids.push(n);
+  });
+  kids.push(box('out', 'OUT', vs(ev.out), ev.out, 'out'));
+
+  /* ghost wire while dragging a connection */
+  if (d && d.kind === 'wire') {
+    var hov = app.hover, a, b;
+    if (d.mode === 'fromIn') { a = hov ? { x: hov.x, y: hov.y } : d.cursor; b = inPortOf(m, d.t); }
+    else { a = outPortOf(m, d.src); b = hov ? { x: hov.x, y: hov.y } : d.cursor; }
+    kids.push(wire(a, b, null, 'ghostw'));
+  }
+  /* port dots on top */
+  allPorts(m).forEach(function (p) {
+    var filled = p.kind === 'out' ? !!consumerOf(m, p.ref) : slotOf(m, p.t).get() !== null;
+    if (carrying && p.kind === 'in' && sameT(d.origin, p.t)) filled = false;
+    var hot = !!app.hover && app.hover.kind === p.kind && (p.kind === 'out' ? app.hover.ref === p.ref : sameT(app.hover.t, p.t));
+    var src = !!d && d.kind === 'wire' && ((p.kind === 'out' && d.src === p.ref) || (p.kind === 'in' && d.t && sameT(d.t, p.t)));
+    kids.push(svgEl('g', { class: 'port ' + p.kind + ' ' + (filled ? 'full' : 'empty') + (hot ? ' hot' : '') + (src ? ' src' : ''),
+      'data-port': p.kind === 'out' ? 'out:' + p.ref : 'in:' + (p.t.out === true ? 'out' : p.t.gate + '-' + p.t.slot) },
+      svgEl('circle', { class: 'hit', cx: p.x, cy: p.y, r: 11 }),
+      svgEl('circle', { class: 'vis', cx: p.x, cy: p.y, r: filled || hot || src ? 5 : 6 })));
+  });
+  svg.replaceChildren.apply(svg, kids);
+  $('liveOut').textContent = vs(ev.out);
+  if (app.focusRef) {
+    var f = svg.querySelector('[data-ref="' + app.focusRef + '"]');
+    if (f && f.focus) f.focus();
+  }
+}
+
+/* ---------- gate palette ---------- */
+function symbolSvg(type) {
+  var geo = gateGeometry(type), s = svgEl('svg', { width: 56, height: 31, viewBox: '-2 -2 ' + (GW + 4) + ' ' + (GH + 4), 'aria-hidden': 'true' },
+    svgEl('path', { d: geo.d }));
+  if (geo.extra) s.append(svgEl('path', { class: 'extra', d: geo.extra }));
+  if (geo.inv) s.append(svgEl('circle', { cx: geo.B + 5, cy: GH / 2, r: 5 }));
+  return s;
+}
+function buildPalette() {
+  var host = $('palette');
+  host.replaceChildren.apply(host, TYPE_ORDER.map(function (t) {
+    return el('button', { type: 'button', class: 'pal', 'data-type': t, 'aria-label': 'Add a ' + t + ' gate (drag onto the canvas, or press Enter)' }, symbolSvg(t), el('span', null, t));
+  }));
+}
+function renderEditor() {
+  var host = $('editor'), m = app.m, g, L = labeler(m);
+  if (app.sel === null) {
+    host.replaceChildren(el('p', { class: 'hint', style: 'margin:0' }, 'Click a gate to select it: you can then change its type or delete it here.'));
+    return;
+  }
+  g = gateById(m, app.sel);
+  var typeRow = elk('div', { class: 'seg' }, TYPE_ORDER.map(function (t) {
+    var b = el('button', { type: 'button', 'aria-pressed': String(t === g.type) }, t);
+    b.addEventListener('click', function () { if (t !== g.type) edit(function () { return setType(app.m, g.id, t); }); });
+    return b;
+  }));
+  var del = el('button', { type: 'button', class: 'danger' }, 'Delete gate');
+  del.addEventListener('click', function () { deleteSelected(); });
+  var close = el('button', { type: 'button' }, 'Deselect');
+  close.addEventListener('click', function () { app.sel = null; renderAll(); });
+  host.replaceChildren(el('h3', null, 'Selected: ' + L('g' + g.id)), el('p', { class: 'hint', style: 'margin:.1rem 0 .3rem' }, 'Change type:'),
+    typeRow, elk('div', { class: 'row' }, [del, close]));
+}
+function deleteSelected() {
+  if (app.sel === null) return;
+  var id = app.sel;
+  edit(function () { return removeGate(app.m, id); }, function () { app.sel = null; });
+}
+
+/* ---------- drag and drop ---------- */
+function svgPoint(e) { var r = $('canvas').getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+function listen(on) {
+  var f = on ? 'addEventListener' : 'removeEventListener';
+  window[f]('pointermove', onMove); window[f]('pointerup', onUp); window[f]('pointercancel', onCancel);
+}
+function beginDrag(d, e, p) {
+  d.start = p; d.cursor = p; d.moved = false;
+  app.drag = d; app.hover = null;
+  if (e.preventDefault) e.preventDefault();
+  try { if (e.pointerId !== undefined) $('canvas').setPointerCapture(e.pointerId); } catch (x) { /* not supported: window listeners still work */ }
+  listen(true);
+}
+function endDrag() {
+  var d = app.drag, h = app.hover;
+  listen(false);
+  try { if (d && d.pid !== undefined) $('canvas').releasePointerCapture(d.pid); } catch (x) { /* ignore */ }
+  if (d && d.ghost) d.ghost.remove();
+  app.drag = null; app.hover = null;
+  return { d: d, hover: h };
+}
+function findHover(d, p) {
+  var m = app.m;
+  if (d.mode === 'fromIn') return nearestPort(m, p, 'out', 16, function (q) { return canConnect(m, q.ref, d.t); });
+  return nearestPort(m, p, 'in', 16, function (q) { return canConnect(m, d.src, q.t); });
+}
+function onCanvasDown(e) {
+  if (app.drag || (e.button !== undefined && e.button > 0)) return;
+  var m = app.m, p = svgPoint(e), port = nearestPort(m, p, null, 12), d, ref, cur;
+  if (port) {
+    if (port.kind === 'out') d = { kind: 'wire', mode: 'fromOut', src: port.ref };
+    else {
+      cur = slotOf(m, port.t).get();
+      d = cur !== null ? { kind: 'wire', mode: 'pickup', src: cur, origin: port.t } : { kind: 'wire', mode: 'fromIn', t: port.t };
+    }
+  } else {
+    ref = nodeAt(m, p);
+    if (!ref) { if (app.sel !== null) { app.sel = null; renderAll(); } return; }
+    d = { kind: 'node', ref: ref, dx: p.x - m.pos[ref].x, dy: p.y - m.pos[ref].y, snap: snapshot() };
+    if (ref.charAt(0) === 'g') { app.sel = Number(ref.slice(1)); app.focusRef = null; }
+  }
+  d.pid = e.pointerId;
+  beginDrag(d, e, p);
+  renderAll();
+}
+function onPaletteDown(e) {
+  var b = e.target && e.target.closest ? e.target.closest('button[data-type]') : null;
+  if (!b || app.drag || (e.button !== undefined && e.button > 0)) return;
+  var d = { kind: 'place', type: b.getAttribute('data-type'), pid: e.pointerId, cx: e.clientX, cy: e.clientY };
+  beginDrag(d, e, svgPoint(e));
+}
+function onMove(e) {
+  var d = app.drag, m = app.m;
+  if (!d) return;
+  var p = svgPoint(e);
+  d.cursor = p;
+  if (!d.moved && Math.hypot(p.x - d.start.x, p.y - d.start.y) > 4) d.moved = true;
+  if (d.kind === 'node' && d.moved) {
+    if (d.ref.charAt(0) === 'g' && !d.front) {            /* bring the dragged gate to the front */
+      var g = gateById(m, Number(d.ref.slice(1)));
+      m.gates.splice(m.gates.indexOf(g), 1); m.gates.push(g); d.front = true;
+    }
+    m.pos[d.ref] = { x: clampN(p.x - d.dx, MAXX), y: clampN(p.y - d.dy, MAXY) };
+  } else if (d.kind === 'wire') {
+    app.hover = d.moved ? findHover(d, p) : null;
+  } else if (d.kind === 'place' && d.moved) {
+    if (!d.ghost) { d.ghost = el('div', { class: 'ghost' }, symbolSvg(d.type)); document.body.append(d.ghost); }
+    d.ghost.style.left = (e.clientX - GW * 56 / (GW + 4) / 2) + 'px';
+    d.ghost.style.top = (e.clientY - 16) + 'px';
+  }
+  if (d.kind !== 'place') renderCanvas();
+}
+function insideCanvasWrap(e) {
+  var r = $('canvasWrap').getBoundingClientRect();
+  return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+}
+function onUp(e) {
+  var d = app.drag;
+  if (!d) return;
+  var p = svgPoint(e), m = app.m;
+  d.cursor = p;
+  if (d.kind === 'wire' && d.moved) app.hover = findHover(d, p);
+  var r = endDrag(), h = r.hover;
+  if (d.kind === 'node') {
+    if (d.moved) { pushHist(d.snap); hideMsg('editMsg'); renderAll(); }
+    else if (d.ref.charAt(0) === 'p') { var i = Number(d.ref.slice(1)); app.bits[i] ^= 1; renderAll(); markCurrentRow(); }
+    else renderAll();
+  } else if (d.kind === 'wire') {
+    if (d.mode === 'fromOut' && h) edit(function () { return connect(app.m, d.src, h.t); });
+    else if (d.mode === 'fromIn' && h) edit(function () { return connect(app.m, h.ref, d.t); });
+    else if (d.mode === 'pickup') {
+      if (h) { if (!sameT(h.t, d.origin)) edit(function () { return connect(app.m, d.src, h.t); }); else renderAll(); }
+      else if (d.moved) edit(function () { return disconnect(app.m, d.origin); });   /* dropped in empty space = unplug */
+      else renderAll();
+    } else renderAll();
+  } else if (d.kind === 'place') {
+    if (!d.moved) edit(function () { return addFloatingGate(app.m, d.type); }, function (res) { app.sel = res.id; });
+    else if (insideCanvasWrap(e)) edit(function () { return addFloatingGate(app.m, d.type, p.x - GW / 2, p.y - GH / 2); }, function (res) { app.sel = res.id; });
+    else renderAll();
+  }
+}
+function onCancel() {
+  var d = app.drag;
+  if (!d) return;
+  endDrag();
+  if (d.kind === 'node' && d.moved) app.m = JSON.parse(d.snap);   /* undo the partial move */
+  renderAll();
+}
+
+/* ---------- circuit text + truth table tabs ---------- */
+var TABS = [['diagram', 'Diagram'], ['text', 'Circuit block'], ['table', 'Truth table']];
+function renderTabBar() {
+  var bar = $('tabBar');
+  bar.replaceChildren.apply(bar, TABS.map(function (t) {
+    var b = el('button', { type: 'button', role: 'tab', 'aria-selected': String(t[0] === app.tab) }, t[1]);
+    b.addEventListener('click', function () { setTab(t[0]); });
+    return b;
+  }));
+}
+function setTab(name) {
+  app.tab = name;
+  TABS.forEach(function (t) { $('panel-' + t[0]).hidden = t[0] !== name; });
+  renderTabBar();
+  if (name === 'text') renderText();
+  if (name === 'table') renderTable();
+}
+function unfinishedText(p) { return 'Finish the circuit first:\n' + p.slice(0, 8).join('\n'); }
+/* ---------- the C++ bridge: server.py runs YOUR compiled program and returns what it printed ---------- */
+var cpp = { cache: {} };
+function cppAsk(c, choice) {
+  if (typeof fetch !== 'function') return Promise.resolve({ offline: true });
+  var body;
+  try { body = JSON.stringify({ n: c.n, gates: c.gates, choice: choice }); } catch (e) { return Promise.resolve({ offline: true }); }
+  return fetch('api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body })
+    .then(function (r) { return r.json().then(function (j) { return j; }, function () { return null; }); })
+    .then(function (j) {
+      if (!j || typeof j.ok !== 'boolean') return { offline: true };
+      if (j.ok) return { ok: true, stdout: String(j.stdout) };
+      return { error: String(j.error || 'The C++ program rejected the circuit.') };
+    })
+    .catch(function () { return { offline: true }; });
+}
+/* apply(result) runs immediately if we already have the answer, otherwise when it arrives */
+function cppResult(c, choice, apply) {
+  var key = choice + ':' + JSON.stringify(c);
+  if (has(cpp.cache, key)) { apply(cpp.cache[key]); return; }
+  cppAsk(c, choice).then(function (res) {
+    if (!res.offline) {
+      if (Object.keys(cpp.cache).length > 60) cpp.cache = {};
+      cpp.cache[key] = res;
+    }
+    apply(res);
+  });
+}
+var OFFLINE_NOTE = "C++ bridge not running, so this is the browser's own calculation. Start server.py to use your C++ program.";
+function normLines(t) { return t.split('\n').map(function (l) { return l.trim(); }).filter(Boolean); }
+function parseCppTable(out, n) {
+  var lines = normLines(out), h = lines.indexOf('Input Pins (Numbers), Output Pin (O):');
+  if (h < 0) return null;
+  var rows = lines.slice(h + 2), res = [], i, k, cells;       /* lines[h+1] is the "0|1|2|O" header row */
+  if (rows.length !== Math.pow(2, n)) return null;
+  for (i = 0; i < rows.length; i++) {
+    cells = rows[i].split('|');
+    if (cells.length !== n + 1) return null;
+    for (k = 0; k < cells.length; k++) if (cells[k] !== '0' && cells[k] !== '1') return null;
+    res.push({ bits: cells.slice(0, n).map(Number), out: Number(cells[n]) });
+  }
+  return res;
+}
+function firstRowDiff(a, b) {
+  for (var i = 0; i < a.length; i++) if (a[i].out !== b[i].out || a[i].bits.join() !== b[i].bits.join()) return i;
+  return -1;
+}
+
+function renderText() {
+  var r = toIndexed(app.m), token = ++app.textToken;
+  $('copyCircuit').disabled = !r.ok;
+  hideMsg('cppNoteText');
+  if (!r.ok) { $('circuitText').textContent = unfinishedText(r.problems); return; }
+  var c = r.circuit, js = circuitText(c);
+  $('circuitText').textContent = js;
+  showMsg('cppNoteText', 'Asking your C++ program...', 'info');
+  cppResult(c, 1, function (res) {
+    if (token !== app.textToken) return;                          /* circuit changed meanwhile */
+    if (res.offline) { showMsg('cppNoteText', OFFLINE_NOTE, 'info'); return; }
+    if (res.error) { showMsg('cppNoteText', 'Your C++ program rejected this circuit: ' + res.error, 'err'); return; }
+    var i = res.stdout.indexOf('Gate Type: INPUT');
+    if (i < 0) { showMsg('cppNoteText', 'Could not read the C++ program output.', 'err'); return; }
+    var text = res.stdout.slice(i);
+    $('circuitText').textContent = text;
+    if (normLines(text).join('\n') === normLines(js).join('\n')) showMsg('cppNoteText', 'Printed by your C++ program. It matches the browser calculation.', 'ok');
+    else showMsg('cppNoteText', "Printed by your C++ program. WARNING: it differs from the browser's version of the circuit block.", 'err');
+  });
+}
+function drawTable(c, rows) {
+  var host = $('tableHost'), head = [], i;
+  for (i = 0; i < c.n; i++) head.push(el('th', null, i));
+  head.push(el('th', { class: 'out' }, 'O'));
+  var tbody = el('tbody');
+  rows.forEach(function (row) {
+    var tds = row.bits.map(function (b) { return el('td', { class: b ? 'one' : 'zero' }, b); });
+    tds.push(el('td', { class: 'out ' + (row.out ? 'one' : 'zero') }, row.out));
+    tbody.append(elk('tr', null, tds));
+  });
+  host.replaceChildren(el('table', { class: 'tbl' }, el('thead', null, elk('tr', null, head)), tbody));
+  app.rowEls = Array.prototype.slice.call(tbody.children);
+  app.curRow = -1; app.tableRows = { n: c.n, rows: rows };
+  markCurrentRow();
+}
+function renderTable() {
+  var r = toIndexed(app.m), host = $('tableHost'), token = ++app.tableToken;
+  $('copyTable').disabled = !r.ok;
+  app.rowEls = []; app.curRow = -1; app.tableRows = null;
+  hideMsg('cppNoteTable');
+  if (!r.ok) { host.replaceChildren(el('pre', null, unfinishedText(r.problems))); return; }
+  var c = r.circuit, js = truthTable(c);
+  drawTable(c, js);
+  showMsg('cppNoteTable', 'Asking your C++ program...', 'info');
+  cppResult(c, 2, function (res) {
+    if (token !== app.tableToken) return;                         /* circuit changed meanwhile */
+    if (res.offline) { showMsg('cppNoteTable', OFFLINE_NOTE, 'info'); return; }
+    if (res.error) { showMsg('cppNoteTable', 'Your C++ program rejected this circuit: ' + res.error, 'err'); return; }
+    var rows = parseCppTable(res.stdout, c.n);
+    if (!rows) { showMsg('cppNoteTable', 'Could not read the C++ program output.', 'err'); return; }
+    drawTable(c, rows);                                           /* show what the C++ program printed */
+    var d = firstRowDiff(rows, js);
+    if (d < 0) showMsg('cppNoteTable', 'Computed by your C++ program. It matches the browser calculation on all ' + rows.length + ' rows.', 'ok');
+    else showMsg('cppNoteTable', "Computed by your C++ program. WARNING: it disagrees with the browser's calculation at row " + (d + 1) + ' (shown below is the C++ result).', 'err');
+  });
+}
+function markCurrentRow() {
+  if (!app.rowEls.length) return;
+  var v = app.bits.reduce(function (a, b) { return a * 2 + b; }, 0);
+  var idx = app.rowEls.length - 1 - v;
+  if (app.curRow >= 0 && app.rowEls[app.curRow]) app.rowEls[app.curRow].classList.remove('cur');
+  if (app.rowEls[idx]) app.rowEls[idx].classList.add('cur');
+  app.curRow = idx;
+}
+function copyText(text, button) {
+  var orig = button.textContent;
+  var done = function (ok) { button.textContent = ok ? 'Copied!' : 'Copy failed - select the text manually'; setTimeout(function () { button.textContent = orig; }, 1800); };
+  function fallback() {
+    try {
+      var ta = el('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.append(ta); ta.select();
+      var ok = document.execCommand('copy'); ta.remove(); done(ok);
+    } catch (e) { done(false); }
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+  else fallback();
+}
+
+/* ---------- wiring up ---------- */
+$('canvas').addEventListener('pointerdown', onCanvasDown);
+$('canvas').addEventListener('keydown', function (e) {
+  var n = e.target && e.target.closest ? e.target.closest('[data-ref]') : null;
+  if (!n || (e.key !== 'Enter' && e.key !== ' ')) return;
+  e.preventDefault();
+  var ref = n.getAttribute('data-ref');
+  if (ref.charAt(0) === 'p') { var i = Number(ref.slice(1)); app.bits[i] ^= 1; app.focusRef = ref; renderAll(); markCurrentRow(); }
+  else if (ref.charAt(0) === 'g') { app.sel = Number(ref.slice(1)); app.focusRef = ref; renderAll(); }
+});
+$('palette').addEventListener('pointerdown', onPaletteDown);
+$('palette').addEventListener('click', function (e) {          /* keyboard activation (Enter/Space) has detail 0 */
+  var b = e.target && e.target.closest ? e.target.closest('button[data-type]') : null;
+  if (!b || e.detail > 0) return;
+  var t = b.getAttribute('data-type');
+  edit(function () { return addFloatingGate(app.m, t); }, function (res) { app.sel = res.id; });
+});
+$('pinMinus').addEventListener('click', function () { edit(function () { return setPins(app.m, app.m.n - 1); }); });
+$('pinPlus').addEventListener('click', function () { edit(function () { return setPins(app.m, app.m.n + 1); }); });
+$('ex1').addEventListener('click', function () { loadModel(example1()); });
+$('ex2').addEventListener('click', function () { loadModel(example2()); });
+$('arrangeBtn').addEventListener('click', function () { edit(function () { return autoArrange(app.m); }); });
+$('clearBtn').addEventListener('click', function () { edit(function () { return clearAll(app.m); }, function () { app.sel = null; app.bits = new Array(app.m.n).fill(0); }); });
+$('undoBtn').addEventListener('click', undo);
+$('copyCircuit').addEventListener('click', function () { var r = toIndexed(app.m); if (r.ok) copyText($('circuitText').textContent, $('copyCircuit')); });
+$('copyTable').addEventListener('click', function () { var r = toIndexed(app.m); if (r.ok && app.tableRows) copyText(rowsText(app.tableRows.n, app.tableRows.rows), $('copyTable')); });
+document.addEventListener('keydown', function (e) {
+  var tag = e.target && e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (e.key === 'Escape') { if (app.drag) onCancel(); else if (app.sel !== null) { app.sel = null; renderAll(); } }
+  else if ((e.key === 'Delete' || e.key === 'Backspace') && app.sel !== null && !app.drag) { e.preventDefault(); deleteSelected(); }
+});
+
+buildPalette();
+renderTabBar();
+loadModel(example1());
+})();
+</script>
+</body>
+</html>
